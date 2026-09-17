@@ -1,14 +1,15 @@
 import streamlit as st
+import os
 from dotenv import load_dotenv
 from PyPDF2 import PdfReader
 
 from langchain.text_splitter import CharacterTextSplitter
 
-#
+
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
-from langchain_community.llms import HuggingFaceHub
-
+from transformers import pipeline
+from langchain_huggingface import HuggingFacePipeline
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
 
@@ -51,24 +52,29 @@ def get_vectorstore(text_chunks):
 
 # ---------------- LLM + CHAIN ---------------- #
 def get_conversation_chain(vectorstore):
-    llm = HuggingFaceHub(
-        repo_id="google/flan-t5-base",   # ✅ stable + free
-        model_kwargs={
-            "temperature": 0.5,
-            "max_length": 512
-        }
+
+    hf_pipeline = pipeline(
+        "text2text-generation",
+        model="google/flan-t5-base",
+        max_new_tokens=512
+    )
+
+    llm = HuggingFacePipeline(
+        pipeline=hf_pipeline
     )
 
     memory = ConversationBufferMemory(
-        memory_key='chat_history',
+        memory_key="chat_history",
         return_messages=True
     )
 
-    return ConversationalRetrievalChain.from_llm(
+    conversation_chain = ConversationalRetrievalChain.from_llm(
         llm=llm,
         retriever=vectorstore.as_retriever(),
         memory=memory
     )
+
+    return conversation_chain
 
 
 # ---------------- CHAT ---------------- #
